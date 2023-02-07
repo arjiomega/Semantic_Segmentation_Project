@@ -20,5 +20,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 IMG_URL = "https://thor.robots.ox.ac.uk/~vgg/data/pets/images.tar.gz"
 LABEL_URL = "https://thor.robots.ox.ac.uk/~vgg/data/pets/annotations.tar.gz"
 
+# Data Directory
+IMG_DIR = Path(DATA_DIR, "images")
+MASK_DIR = Path(DATA_DIR, "annotations/trimaps")
 
 # Logging

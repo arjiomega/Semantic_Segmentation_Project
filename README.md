@@ -11,3 +11,6 @@ conda install python=3.9
 ```bash
 pip install -e .
 ```
+
+## Updates in the future
+1. Work on multiple classes
