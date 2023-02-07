@@ -1,0 +1,10 @@
+# Data
+data/
+
+# Packaging
+*.egg-info/
+__pycache__/
+**/__pycache__/
+
+# IDE
+.vscode/

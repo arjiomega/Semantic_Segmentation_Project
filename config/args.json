@@ -1,0 +1,7 @@
+{
+    "encoder": "vgg16",
+    "learning_rate": 1e-4,
+    "batch_size": 32,
+    "epochs": 40,
+    "loss_function": "combined_focal_dice_loss"
+}
