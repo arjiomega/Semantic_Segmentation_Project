@@ -55,7 +55,7 @@ class Load_Dataset:
 
         self.img_path = [os.path.join(self.img_dir,img_id) for img_id in self.img_ids]
         self.mask_path = [os.path.join(self.mask_dir,mask_id) for mask_id in self.mask_ids]
-        
+
         self.img_path = sorted(self.img_path)
         self.mask_path = sorted(self.mask_path)
 
@@ -87,27 +87,7 @@ class Load_Dataset:
 
         #################################
         #Data clean
-        data_clean = Clean_Data(img_id_input = self.img_ids,
-                                mask_id_input = self.mask_ids,
-                                img_path_input = self.img_path,
-                                mask_path_input = self.mask_path,
-                                specie_dict_input = self.specie_dict)
-
-        self.img_path = data_clean.img_paths
-        self.mask_path = data_clean.mask_paths
-        self.img_ids = data_clean.img_ids
-        self.mask_ids = data_clean.mask_ids
-
-        print("Lengths after data cleaning")
-        print(f"img_ids len: {len(self.img_ids)}")
-        print(f"mask_ids len: {len(self.mask_ids)}")
-        print(f"img_path len: {len(self.img_path)}")
-        print(f"mask_path len: {len(self.mask_path)}")
-
-        if all(len(self.img_ids) != len(list_) for list_ in [self.mask_ids,self.img_path,self.mask_path] ):
-            raise AssertionError("Lists of Id and path do not have the same length")
-        else:
-            print("Length Check Passed!\n")
+        # REMOVED, CLEANING DONE OUTSIDE THIS ONE
         #################################
 
         # Count class dict {"cat": 500, "dog": 1500}

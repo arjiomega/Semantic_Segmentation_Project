@@ -35,36 +35,58 @@ def data2list(img_dir: str,mask_dir: str) -> tuple[list,list]:
     return img_inputs, mask_inputs
 
 
-def split_data(img_inputs,mask_inputs, include_test=False):
-    # divide equally to prevent class imbalance in dataset
-    ## this one may produce errors again
+def split_data(img_inputs,mask_inputs,specie_dict, include_test=True):
+    ClassList_dict = {}
+    classes = ["background","cat","dog"]
 
-    # change 2370 by finding the index of last cat in the sorted list input
-    cat_img = img_inputs[:2370]
-    dog_img = img_inputs[2370:]
+    for class_ in classes:
+        specie_index = classes.index(class_)
+        ClassList_dict["class_"] = {"img" : [img_  for img_  in img_inputs  if specie_dict[{}.format(img_.split(".")[0])]  == specie_index],
+                                    "mask": [mask_ for mask_ in mask_inputs if specie_dict[{}.format(mask_.split(".")[0])] == specie_index]
+                                    }
 
-    cat_mask = mask_inputs[:2370]
-    dog_mask = mask_inputs[2370:]
+    split_setting = {"train" : 0.7,
+                     "valid" : 0.2,
+                     "test" : 0.1
+                    }
+    if not include_test:
+        split_setting["valid"] = split_setting["test"]
+        del split_setting["test"]
 
 
-    train_img = cat_img[:len(cat_img)//2] + dog_img[:len(dog_img)//2]
-    train_mask = cat_mask[:len(cat_mask)//2] + dog_mask[:len(dog_mask)//2]
+    dataset_list = list(split_setting.keys())
+    prev_length = 0
+    all_dataset = {}
 
-    valid_img = cat_img[len(cat_img)//2:] + dog_img[len(dog_img)//2:]
-    valid_mask = cat_mask[len(cat_mask)//2:] + dog_mask[len(dog_mask)//2:]
+    for ds in dataset_list:
+        temp_img_list = []
+        temp_mask_list = []
+        start = prev_length
 
-    train_img_dict = {img_dir : train_img}
-    train_mask_dict = {mask_dir : train_mask}
+        for class_ in classes:
 
-    valid_img_dict = {img_dir : valid_img}
-    valid_mask_dict = {mask_dir : valid_mask}
+            # SKIP: for background because all images have cat or dog (background image list has 0 length)
+            if len(ClassList_dict[class_]["img"]) == 0:
+                continue
 
-    train = {"img": , "mask":}
-    valid = {"img": , "mask":}
+            dataset_length = math.floor( split_setting[ds] * len(ClassList_dict[class_]["img"]))
+            end = start + dataset_length
 
-    datasets = {"train":{"img": 10, "mask": 10},
-                "valid":{"img": 10, "mask": 10} }
+            specie_index = classes.index(class_)
 
+            # slice until the end of the list
+            if ds == dataset_list[-1]:
+                end = None
+
+            # sample: cat_img_list = ClassList_dict["cat"]["img"] -> ["catName01.jpg", "catName02.jpg", ...]
+            temp_img_list.extend([img_    for img_   in ClassList_dict[class_]["img"][start:end]   ])
+            temp_mask_list.extend([mask_  for mask_  in ClassList_dict[class_]["mask"][start:end]  ])
+
+        prev_length = end
+        all_dataset[ds] =   {"img" : temp_img_list,
+                             "mask": temp_mask_list}
+
+    return all_dataset
 
 
 def preprocess():
@@ -99,112 +121,21 @@ def preprocess():
     img_inputs,mask_inputs = clean_data.img_ids, clean_data.mask_ids
 
     # Split Data
-    """
-    Each number here are images and are replaced by their specie index
-    [1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
-    split into train, valid, test with equal number of classes
-    use for loop and get 1 from each classes until we reach the desired amount (Ex: 0.7x(Tot_num_samples) )
-    If reached desired amount continue to valid then test
-    USE:
-        1. img_inputs
-        2. mask_inputs
-        3. specie_dict
-    MUST:
-        1. img_inputs and mask_inputs name must be similar (Ex: "dog_name01.jpg" = "dog_name01.png")
-    PROCESS:
-        1. get a list of unique classes (Ex: From [1,1,1,2,2,2,3,4] to [1,2,3,4])
-        2. get a random image and mask from each class until desired amount per dataset
-    """
-
-    train_percent = 0.7
-    valid_percent = 0.12
-    test_percent = 0.10
+    all_dataset = split_data(img_inputs,mask_inputs,specie_dict, include_test=True)
 
 
+    #Load Dataset
+    train_img, train_mask = all_dataset["train"]["img"],  all_dataset["train"]["mask"]
+    valid_img, valid_mask = all_dataset["train"]["img"],  all_dataset["train"]["mask"]
 
-
-    specie_list = [specie_dict[img_] for img_ in img_inputs]
-
-    # 0: background, 1: cat, 2: dog
-    cat_img = [img_ for img_ in img_inputs if specie_dict[img_] == 1]
-    dog_img = [img_ for img_ in img_inputs if specie_dict[img_] == 2]
-
-
-    split_setting = {"train" : 0.7,
-                     "valid" : 0.2,
-                     "test" : 0.1
-    }
-
-
-    all_dataset = {}
-
-    for ds in ["train","valid"]:
-        img_list = []
-        mask_list = []
-
-        dataset_length = math.floor( split_setting[ds] * len(img_inputs))
-
-        for specie_index in np.unique( list( specie_dict.values() ) ):
-        # get a file_name from img_inputs and mask_inputs using specie_index and specie_dict
-
-            # temp_img_list and temp_mask_list for each specie (prevent adding to list if it reaches desired dataset_length)
-            temp_img_list =  [img_ for img_ in img_inputs    for counter in range(dataset_length)   if specie_dict[{}.format(img_.split(".")[0])]  == specie_index and counter < dataset_length]
-            temp_mask_list = [mask_ for mask_ in mask_inputs for counter in range(dataset_length)   if specie_dict[{}.format(mask_.split(".")[0])] == specie_index and counter < dataset_length]
-
-            # extend to combine all lists with different specie
-            img_list.extend(temp_img_list)
-            mask_list.extend(temp_mask_list)
-
-
-        all_dataset[ds: {"img" : img_list,
-                         "mask": mask_list}]
-
-
-
-
-    out_datasets = {"train":{"img": temp_img_list, "mask": temp_mask_list} }
-
-
-
-
-
-
-
-
-    cat_img = img_inputs[:2370]
-    dog_img = img_inputs[2370:]
-
-    cat_mask = mask_inputs[:2370]
-    dog_mask = mask_inputs[2370:]
-
-
-    train_img = cat_img[:len(cat_img)//2] + dog_img[:len(dog_img)//2]
-    train_mask = cat_mask[:len(cat_mask)//2] + dog_mask[:len(dog_mask)//2]
-
-    valid_img = cat_img[len(cat_img)//2:] + dog_img[len(dog_img)//2:]
-    valid_mask = cat_mask[len(cat_mask)//2:] + dog_mask[len(dog_mask)//2:]
-
-    train_img_dict = {img_dir : train_img}
-    train_mask_dict = {mask_dir : train_mask}
-
-    valid_img_dict = {img_dir : valid_img}
-    valid_mask_dict = {mask_dir : valid_mask}
-
-    datasets = {"train":{"img": 10, "mask": 10},
-                "valid":{"img": 10, "mask": 10} }
-
-
-
-
-
-    train_dataset = data_utilities.Load_Dataset(img_dir = train_img_dict,  # either str of directory or list of directory
-                        mask_dir = train_mask_dict, # either str of directory or list of directory
-                        specie_dict = specie_dict,
-                        classes=["background","cat","dog"],
-                        classes_limit=False,
-                        augmentation=False, # insert augmentation function here
-                        preprocessing=preprocess_fn,# insert preprocessing function here
-                        fix_mask=True)
+    train_dataset = data_utilities.Load_Dataset(img_dir = {config.IMG_DIR:train_img},
+                                                mask_dir = {config.MASK_DIR,train_mask},
+                                                specie_dict = specie_dict,
+                                                classes=["background","cat","dog"],
+                                                classes_limit=False,
+                                                augmentation=False, # insert augmentation function here
+                                                preprocessing=preprocess_fn,# insert preprocessing function here
+                                                fix_mask=True)
 
     valid_dataset = data_utilities.Load_Dataset(img_dir = valid_img_dict,  # either str of directory or list of directory
                         mask_dir = valid_mask_dict, # either str of directory or list of directory
