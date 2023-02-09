@@ -1,8 +1,7 @@
 
 
-
-
-
+import tensorflow as tf
+import numpy as np
 
 
 class Dataloader(tf.keras.utils.Sequence):
@@ -11,7 +10,7 @@ class Dataloader(tf.keras.utils.Sequence):
                  dataset_size, # insert len of img_path from Load_Dataset class
                  batch_size,
                  shuffle=False):
-        
+
         self.dataset = dataset
         self.dataset_size = dataset_size
         self.batch_size = batch_size

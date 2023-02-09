@@ -1,7 +1,7 @@
 
 from package import utils
-
-
+import data_utilities
+from package import load_data
 
 
 
@@ -11,38 +11,23 @@ def train():
 
     utils.set_seeds()
 
-    train_dataset = data_utilities.Load_Dataset(img_dir = train_img_dict,  # either str of directory or list of directory
-                        mask_dir = train_mask_dict, # either str of directory or list of directory
-                        specie_dict = specie_dict,  
-                        classes=["background","cat","dog"], 
-                        classes_limit=False, 
-                        augmentation=False, # insert augmentation function here
-                        preprocessing=preprocess_fn,# insert preprocessing function here
-                        fix_mask=True)
+    train_dataset, valid_dataset = load_data()
 
-    valid_dataset = data_utilities.Load_Dataset(img_dir = valid_img_dict,  # either str of directory or list of directory
-                        mask_dir = valid_mask_dict, # either str of directory or list of directory
-                        specie_dict = specie_dict,  
-                        classes=["background","cat","dog"], 
-                        classes_limit=False, 
-                        augmentation=False, # insert augmentation function here
-                        preprocessing=preprocess_fn,# insert preprocessing function here
-                        fix_mask=True)
-
-    loaded_train_dataset = Dataloader(dataset = train_dataset,
+    loaded_train_dataset = data_utilities.Dataloader(dataset = train_dataset,
                             dataset_size = len(train_dataset.img_path),
                             batch_size = 29,
                             shuffle = True
                             )
 
-    loaded_valid_dataset = Dataloader(dataset = valid_dataset,
+    loaded_valid_dataset = data_utilities.Dataloader(dataset = valid_dataset,
                                 dataset_size = len(valid_dataset.img_path),
                                 batch_size = 29,
                                 shuffle = False
                                 )
 
 
-    # Model
+
+    # Model (Temporary)
     model = sm.Unet('vgg16', classes=3, activation='softmax')
 
     optim = tf.keras.optimizers.Adam(0.0001)
