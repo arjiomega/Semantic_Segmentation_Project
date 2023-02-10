@@ -3,14 +3,14 @@ import pandas as pd
 import numpy as np
 import cv2
 import copy
-
+from pathlib import Path
 import math
 from config import config
 
-from .data_utilities import clean_data,load_dataset,dataloader
+from .data_utilities import clean_data,load_dataset
 
 
-def data2list(img_dir: str,mask_dir: str):# -> tuple[list,list]:
+def data2list(img_dir: str,mask_dir: str) -> tuple[list,list]:
     """Get a list of img and mask file names
 
     Args:
@@ -20,21 +20,15 @@ def data2list(img_dir: str,mask_dir: str):# -> tuple[list,list]:
     Returns:
         tuple[list,list]: list of images and mask (ex. ["dogname.jpg",...],["dogname.png",...])
     """
-
     img_inputs = [img_ for img_ in os.listdir(img_dir) if not img_.startswith(".") and (img_.endswith(".jpg") or img_.endswith(".png"))]
     mask_inputs = [mask_ for mask_ in os.listdir(mask_dir) if not mask_.startswith(".") and (mask_.endswith(".jpg") or mask_.endswith(".png"))]
     img_inputs = sorted(img_inputs)
     mask_inputs = sorted(mask_inputs)
 
-    # add this to test
-    assert len(img_inputs) == len(mask_inputs), "img_inputs and mask_inputs do not have the same length"
-    assert img_inputs[0].split(".")[0] == mask_inputs[0].split(".")[0]
-    print(img_inputs[0].split(".")[0], mask_inputs[0].split(".")[0])
-
     return img_inputs, mask_inputs
 
 
-def split_data(img_inputs,mask_inputs,specie_dict, include_test=True):
+def split_data(img_inputs: list,mask_inputs: list,specie_dict: dict, include_test=True) -> dict:
     ClassList_dict = {}
     classes = ["background","cat","dog"]
 
@@ -90,48 +84,46 @@ def split_data(img_inputs,mask_inputs,specie_dict, include_test=True):
 
     return all_dataset
 
-
-def load_data():
-    """preprocess the data (Maybe change name to load??)
-        1. Load Data
-        1. Clean Data
-        3. Split Data
-        4. Load Dataset
-        LAST. return
-    """
-
-    #######################
-    # LOAD DATAFRAME
-    df = pd.read_csv('annotations/list.txt', comment='#',header=None, sep=" ")
+def initialize() -> tuple[pd.DataFrame,dict]:
+    df = pd.read_csv(Path(config.MASK_DIR.parent,'list.txt'), comment='#',header=None, sep=" ")
     df.columns = ['image_name','class_index','specie_index','breed_index']
     df = df.sort_values(by = 'image_name', ascending=True)
     df = df.reset_index(drop=True)
 
     # Get dict ("image_name": specie_index)
     specie_dict = df.set_index("image_name")["specie_index"].to_dict()
-    #######################
 
+    return df, specie_dict
+
+def load_data(include_test=True,run_pytest=False) -> tuple[load_dataset.Load_Dataset,...]:
+    df, specie_dict = initialize()
 
     # LOAD DATA (list of "DogOrCatName.jpg")
     img_inputs, mask_inputs = data2list(config.IMG_DIR,config.MASK_DIR)
 
     # CLEAN DATA (Remove unlabeled and duplicate data)
-    clean_data = clean_data.Clean_Data(img_inputs = img_inputs,
+    clean_data_ = clean_data.Clean_Data(img_inputs = img_inputs,
                                            mask_inputs = mask_inputs,
                                            specie_dict = specie_dict)
+    _,_ = clean_data_.remove_unlabeled_data()
 
-    img_inputs,mask_inputs = clean_data.img_ids, clean_data.mask_ids
+    if run_pytest == False:
+        _,_ = clean_data_.remove_duplicate_data()
+
+    img_inputs,mask_inputs = clean_data_.img_ids, clean_data_.mask_ids
 
     # Split Data
-    all_dataset = split_data(img_inputs,mask_inputs,specie_dict, include_test=True)
-
+    all_dataset = split_data(img_inputs,mask_inputs,specie_dict, include_test=include_test)
 
     #Load Dataset
     train_img, train_mask = all_dataset["train"]["img"],  all_dataset["train"]["mask"]
     valid_img, valid_mask = all_dataset["valid"]["img"],  all_dataset["valid"]["mask"]
+    test_img, test_mask = all_dataset["test"]["img"],  all_dataset["test"]["mask"]
 
-    train_dataset = load_dataset.Load_Dataset(img_dir = {config.IMG_DIR:train_img},
-                                                mask_dir = {config.MASK_DIR,train_mask},
+    train_dataset = load_dataset.Load_Dataset(img_dir = config.IMG_DIR,
+                                                mask_dir = config.MASK_DIR,
+                                                img_list = train_img,
+                                                mask_list= train_mask,
                                                 specie_dict = specie_dict,
                                                 classes=["background","cat","dog"],
                                                 classes_limit=False,
@@ -139,8 +131,21 @@ def load_data():
                                                 preprocessing=preprocess_fn,#preprocessing function
                                                 fix_mask=True)
 
-    valid_dataset = load_dataset.Load_Dataset(img_dir = {config.IMG_DIR:valid_img},
-                                                mask_dir = {config.MASK_DIR,valid_mask},
+    valid_dataset = load_dataset.Load_Dataset(img_dir = config.IMG_DIR,
+                                                mask_dir = config.MASK_DIR,
+                                                img_list = valid_img,
+                                                mask_list= valid_mask,
+                                                specie_dict = specie_dict,
+                                                classes=["background","cat","dog"],
+                                                classes_limit=False,
+                                                augmentation=False, #augmentation function
+                                                preprocessing=preprocess_fn,#preprocessing function
+                                                fix_mask=True)
+
+    test_dataset = load_dataset.Load_Dataset(img_dir = config.IMG_DIR,
+                                                mask_dir = config.MASK_DIR,
+                                                img_list = test_img,
+                                                mask_list= test_mask,
                                                 specie_dict = specie_dict,
                                                 classes=["background","cat","dog"],
                                                 classes_limit=False,
@@ -149,10 +154,7 @@ def load_data():
                                                 fix_mask=True)
 
 
-    return train_dataset, valid_dataset # add train_dataset next time
-
-
-
+    return train_dataset, valid_dataset, test_dataset # add train_dataset next time
 
 
 def preprocess_fn(img,mask):
@@ -161,108 +163,7 @@ def preprocess_fn(img,mask):
     preprocessed_img = cv2.resize(img, (224,224), interpolation=cv2.INTER_LINEAR)
     preprocessed_mask = cv2.resize(mask, (224,224), interpolation=cv2.INTER_LINEAR)
 
+    preprocessed_img = np.round(preprocessed_img)
+    preprocessed_mask = np.round(preprocessed_mask)
+
     return preprocessed_img, preprocessed_mask
-
-
-
-
-
-
-
-
-# """NOTE:
-#     1. Consider splitting classes equally
-#     2. img_dir and img_name in pandas dataframe, try to make then equal in each element
-# """
-
-# img_dir = "images"
-# mask_dir = "annotations/trimaps"
-
-# # remove hidden files and not jpg or png
-# img_inputs = [img_ for img_ in os.listdir(img_dir) if not img_.startswith(".") and (img_.endswith(".jpg") or img_.endswith(".png"))]
-# mask_inputs = [mask_ for mask_ in os.listdir(mask_dir) if not mask_.startswith(".") and (mask_.endswith(".jpg") or mask_.endswith(".png"))]
-# img_inputs = sorted(img_inputs)
-# mask_inputs = sorted(mask_inputs)
-
-# assert len(img_inputs) == len(mask_inputs), "img_inputs and mask_inputs do not have the same length"
-
-# # divide equally to prevent class imbalance in dataset
-# ## this one may produce errors again 
-# cat_img = img_inputs[:2370]
-# dog_img = img_inputs[2370:]
-
-# cat_mask = mask_inputs[:2370]
-# dog_mask = mask_inputs[2370:]
-
-
-# train_img = cat_img[:len(cat_img)//2] + dog_img[:len(dog_img)//2]
-# train_mask = cat_mask[:len(cat_mask)//2] + dog_mask[:len(dog_mask)//2]
-
-# valid_img = cat_img[len(cat_img)//2:] + dog_img[len(dog_img)//2:]
-# valid_mask = cat_mask[len(cat_mask)//2:] + dog_mask[len(dog_mask)//2:]
-
-
-# ########################################################################
-# ###########################     TEST      ##############################
-# if train_img[500].split("/")[-1].split(".")[0] != train_mask[500].split("/")[-1].split(".")[0]:
-#     print(f"img: {train_img[500]}")
-#     print(f"mask: {train_mask[500]}")
-#     raise AssertionError("EQUALITY TEST: FAILED (TRAIN)")
-# else:
-#     print(f"img: {train_img[500]}")
-#     print(f"mask: {train_mask[500]}")
-#     print("EQUALITY TEST: PASSED (TRAIN)")
-
-# if valid_img[500].split("/")[-1].split(".")[0] != valid_mask[500].split("/")[-1].split(".")[0]:
-#     print(f"img: {valid_img[500]}")
-#     print(f"mask: {valid_mask[500]}")
-#     raise AssertionError("EQUALITY TEST: FAILED (VALIDATION)")
-# else:
-#     print(f"img: {valid_img[500]}")
-#     print(f"mask: {valid_mask[500]}")
-#     print("EQUALITY TEST: PASSED (VALIDATION)")
-# ########################################################################
-
-
-# train_img_dict = {img_dir : train_img}
-# train_mask_dict = {mask_dir : train_mask}
-
-# valid_img_dict = {img_dir : valid_img}
-# valid_mask_dict = {mask_dir : valid_mask}
-
-
-# train_dataset = Load_Dataset(img_dir = train_img_dict,  # either str of directory or list of directory
-#                        mask_dir = train_mask_dict, # either str of directory or list of directory
-#                        specie_dict = specie_dict,  
-#                        classes=["background","cat","dog"], 
-#                        classes_limit=False, 
-#                        augmentation=False, # insert augmentation function here
-#                        preprocessing=preprocess_fn,# insert preprocessing function here
-#                        fix_mask=True)
-
-# valid_dataset = Load_Dataset(img_dir = valid_img_dict,  # either str of directory or list of directory
-#                        mask_dir = valid_mask_dict, # either str of directory or list of directory
-#                        specie_dict = specie_dict,  
-#                        classes=["background","cat","dog"], 
-#                        classes_limit=False, 
-#                        augmentation=False, # insert augmentation function here
-#                        preprocessing=preprocess_fn,# insert preprocessing function here
-#                        fix_mask=True)
-
-
-
-# # Batch Gradient Descent: Batch Size = Size of Training Set
-# # Stochastic Gradient Descent: Batch Size = 1
-# # Mini-Batch Gradient Descent: 1 < Batch Size < Size of Training Set
-
-# loaded_train_dataset = Dataloader(dataset = train_dataset,
-#                             dataset_size = len(train_dataset.img_path),
-#                             batch_size = 29,
-#                             shuffle = True
-#                             )
-
-# loaded_valid_dataset = Dataloader(dataset = valid_dataset,
-#                             dataset_size = len(valid_dataset.img_path),
-#                             batch_size = 29,
-#                             shuffle = False
-#                             )

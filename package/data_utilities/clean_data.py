@@ -11,42 +11,17 @@ class Clean_Data:
                  mask_inputs,
                  specie_dict,
                 ):
-
-        #print("\nRunning: Clean_Data")
-        #print("------------------------------------\n")
-
         self.specie_dict = specie_dict
         self.img_ids = img_inputs
         self.mask_ids = mask_inputs
 
-        # # TEST
-        # ## CHECK LENGTH
-        # if len(self.img_ids) != len(self.mask_ids):
-        #     raise AssertionError("Lists of Id and path do not have the same length")
-        # else:
-        #     print("Length Check Passed!\n")
-
         self.count_remove = 0
-        #self.run_clean()
-
-        #print("\nStop: Clean_Data")
-        #print("------------------------------------\n")
-
 
     def run_clean(self):
-        # remove in the list those without labels
-
-        print("Removing Unlabeled Data")
         self.img_ids, self.mask_ids = self.remove_unlabeled_data()
-        print(f"Number of data removed: {self.count_remove}")
-
-        print("Removing Duplicate Data")
         self.img_ids, self.mask_ids = self.remove_duplicate_data()
-        print(f"Number of data removed: {self.count_remove}")
-
 
     def remove_unlabeled_data(self):
-
         # name without filetype .jpeg
         name_list = [img_id.split('.')[0] for img_id in self.img_ids]
 
@@ -64,7 +39,7 @@ class Clean_Data:
         return self.img_ids, self.mask_ids
 
 
-    def remove_duplicate_data(self):
+    def remove_duplicate_data(self, run_pytest=False):
         img_hashes = {}
         duplicate_list = []
 

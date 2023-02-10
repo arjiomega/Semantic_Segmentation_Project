@@ -3,7 +3,7 @@ from package import utils
 import data_utilities
 from package import load_data
 
-
+from .data_utilities import dataloader
 
 def train():
     """train model on dataset
@@ -13,13 +13,16 @@ def train():
 
     train_dataset, valid_dataset = load_data()
 
-    loaded_train_dataset = data_utilities.Dataloader(dataset = train_dataset,
+    # Batch Gradient Descent: Batch Size = Size of Training Set
+    # Stochastic Gradient Descent: Batch Size = 1
+    # Mini-Batch Gradient Descent: 1 < Batch Size < Size of Training Set
+    loaded_train_dataset = dataloader.Dataloader(dataset = train_dataset,
                             dataset_size = len(train_dataset.img_path),
                             batch_size = 29,
                             shuffle = True
                             )
 
-    loaded_valid_dataset = data_utilities.Dataloader(dataset = valid_dataset,
+    loaded_valid_dataset = dataloader.Dataloader(dataset = valid_dataset,
                                 dataset_size = len(valid_dataset.img_path),
                                 batch_size = 29,
                                 shuffle = False

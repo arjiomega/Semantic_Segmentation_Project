@@ -7,6 +7,9 @@ import warnings
 import pandas as pd
 from pathlib import Path
 import copy
+import matplotlib.pyplot as plt
+import cv2
+import numpy as np
 with warnings.catch_warnings():
     # ignore warning on tensorflow (package/data_utilities/dataloader)
     warnings.filterwarnings("ignore", category=DeprecationWarning, message="`np.bool8` is a deprecated alias for `np.bool_`")
@@ -15,11 +18,6 @@ with warnings.catch_warnings():
 
 import sys
 import math
-
-
-
-
-
 
 class TestData:
     @classmethod
@@ -50,11 +48,12 @@ class TestData:
                                            mask_inputs=self.test_mask,
                                            specie_dict=self.specie_dict
             )
-            if method.__name__ in ["test_CleanData_duplicate","test_splitdata"]:
+            if method.__name__ in ["test_CleanData_duplicate","test_splitdata","test_loadDataset"]:
                 _,_ = self.test_Clean.remove_unlabeled_data()
 
                 # removing duplicates take a lot of time so it is excluded from test_splitdata
-                # if method.__name__ in ["test_splitdata"]:
+                # can also be excluded in duplicates because we can still load them and do test
+                # if method.__name__ in ["test_loadDataset"]:
                 #     _,_ = self.test_Clean.remove_duplicate_data()
 
 
@@ -197,6 +196,9 @@ class TestData:
             all_dataset[ds] =   {"img" : temp_img_list,
                                 "mask": temp_mask_list}
 
+            for i in random.sample(range(0,len(temp_img_list)),10):
+                assert temp_img_list[i].split(".")[0] == temp_mask_list[i].split(".")[0]
+
             if ds == "train":
                 assert len(temp_img_list) == len(temp_mask_list)
                 assert len(temp_img_list) == (1659+3484)
@@ -207,3 +209,139 @@ class TestData:
                 assert len(temp_img_list) == len(temp_mask_list)
                 assert len(temp_img_list) == (237+497+3)
 
+        # test whole function
+        img_inputs,mask_inputs = self.test_Clean.img_ids, self.test_Clean.mask_ids
+        specie_dict = self.specie_dict
+        test_all_dataset = data.split_data(img_inputs,mask_inputs,specie_dict)
+
+        for ds in dataset_list:
+            temp_img_list = test_all_dataset[ds]["img"]
+            temp_mask_list = test_all_dataset[ds]["mask"]
+            if ds == "train":
+                assert len(temp_img_list) == len(temp_mask_list)
+                assert len(temp_img_list) == (1659+3484)
+            elif ds == "valid":
+                assert len(temp_img_list) == len(temp_mask_list)
+                assert len(temp_img_list) == (474+995)
+            elif ds == "test":
+                assert len(temp_img_list) == len(temp_mask_list)
+                assert len(temp_img_list) == (237+497+3)
+
+    def test_loadDataset(self):
+        # removed unlabeled data
+        img_inputs,mask_inputs = self.test_Clean.img_ids, self.test_Clean.mask_ids
+        specie_dict = self.specie_dict
+
+        # split
+        all_dataset = data.split_data(img_inputs,mask_inputs,specie_dict)
+
+        # get train
+        train_img = all_dataset["train"]["img"]
+        train_mask = all_dataset["train"]["mask"]
+
+        assert train_img == sorted(train_img)
+        assert train_mask == sorted(train_mask)
+
+        img_path = [str(Path(config.IMG_DIR,img_id)) for img_id in train_img]
+        mask_path = [str(Path(config.MASK_DIR,mask_id)) for mask_id in train_mask]
+
+        assert img_path == sorted(img_path)
+        assert mask_path == sorted(mask_path)
+        assert len(img_path) == len(mask_path)
+
+        for i in random.sample(range(0,len(img_path)),10):
+            assert img_path[i].split("/")[-1].split(".")[0] == train_img[i].split(".")[0]
+            assert img_path[i].split("/")[-1].split(".")[0] == mask_path[i].split("/")[-1].split(".")[0]
+
+        classes_limit = False
+        classes = ["background", "cat", "dog"]
+        if classes_limit:
+            class_val = [classes.index(cls) for cls in classes_limit]
+        else:
+            class_val = [i for i,x in enumerate(classes)]
+
+        ## TEST CAT
+        mask = cv2.imread(mask_path[10],0)
+        specie_index = specie_dict.get(mask_path[10].split("/")[-1].split(".")[0])
+
+        assert all(np.unique(mask) == [1,2,3])
+
+        bg = 0
+        condition_object = np.logical_or(mask == 1, mask ==3)
+        condition_bg = (mask == 2)
+
+        mask = np.where(condition_object,specie_index,np.where(condition_bg,bg,mask))
+
+        assert all(np.unique(mask) == [0,1])
+
+        masks = [(mask == class_) for class_ in class_val]
+        mask = np.stack(masks, axis = -1).astype('float')
+
+        # mask channel is the number of classes
+        assert mask.shape[-1] == len(class_val)
+
+        print(np.unique(mask[...,0]))
+        print(np.unique(mask[...,1]))
+        print(np.unique(mask[...,2]))
+        assert len(np.unique(mask[...,0])) == 2 # background exists
+        assert len(np.unique(mask[...,1])) == 2 # cat exists
+        assert len(np.unique(mask[...,2])) == 1 # dog does not exists
+
+        # PREPROCESS
+        preprocessed_mask = cv2.resize(mask, (224,224), interpolation=cv2.INTER_LINEAR)
+        preprocessed_mask = np.round(preprocessed_mask)
+
+        assert len(np.unique(preprocessed_mask)) == 2
+
+        # run complete
+        train_dataset = load_dataset.Load_Dataset(img_dir = config.IMG_DIR,
+                                                mask_dir = config.MASK_DIR,
+                                                img_list = train_img,
+                                                mask_list= train_mask,
+                                                specie_dict = specie_dict,
+                                                classes=["background","cat","dog"],
+                                                classes_limit=False,
+                                                augmentation=False, #augmentation function
+                                                preprocessing=data.preprocess_fn,#preprocessing function
+                                                fix_mask=True)
+        #img,mask = test_dataset[5]
+        assert train_dataset.class_count["cat"] == 1659
+        assert train_dataset.class_count["dog"] == 3484
+
+        # DOG TEST
+        dog_test_img,dog_test_mask = train_dataset[3000]
+
+        assert train_dataset.img_ids[500].split(".")[0] == train_dataset.mask_ids[500].split(".")[0]
+        # 1: does not exist || 2: does exist (in the image)
+        assert len(np.unique(dog_test_mask[...,0])) == 2 # background
+        assert len(np.unique(dog_test_mask[...,1])) == 1 # cat
+        assert len(np.unique(dog_test_mask[...,2])) == 2 # dog
+
+        # CAT TEST
+        cat_test_img,cat_test_mask = train_dataset[3000]
+
+        # 1: does not exist || 2: does exist (in the image)
+        assert len(np.unique(cat_test_mask[...,0])) == 2 # background
+        assert len(np.unique(cat_test_mask[...,1])) == 1 # cat
+        assert len(np.unique(cat_test_mask[...,2])) == 2 # dog
+
+
+    def test_final(self):
+        train_dataset, valid_dataset, test_dataset = data.load_data(run_pytest=True)
+
+        # DOG TEST
+        dog_test_img,dog_test_mask = train_dataset[3000]
+
+        assert train_dataset.img_ids[500].split(".")[0] == train_dataset.mask_ids[500].split(".")[0]
+        # 1: does not exist || 2: does exist (in the image)
+        assert len(np.unique(dog_test_mask[...,0])) == 2 # background
+        assert len(np.unique(dog_test_mask[...,1])) == 1 # cat
+        assert len(np.unique(dog_test_mask[...,2])) == 2 # dog
+
+        # CAT TEST
+        cat_test_img,cat_test_mask = train_dataset[3000]
+
+        # 1: does not exist || 2: does exist (in the image)
+        assert len(np.unique(cat_test_mask[...,0])) == 2 # background
+        assert len(np.unique(cat_test_mask[...,1])) == 1 # cat
+        assert len(np.unique(cat_test_mask[...,2])) == 2 # dog
