@@ -11,3 +11,12 @@ conda install python=3.9
 ```bash
 pip install -e .
 ```
+
+## Running test
+```bash
+pytest --verbose
+```
+
+## Updates in the future
+1. Work on multiple classes
+
