@@ -71,7 +71,7 @@ class Load_Dataset:
 
     def fix(self,i,mask):
         find_name = self.img_ids[i].split('.')[0]
-        specie_index = self.specie_dict.get(self.mask_path[i].split("/")[-1].split(".")[0])
+        specie_index = self.specie_dict.get(self.mask_path[i].split(os.path.sep)[-1].split(".")[0])
 
         if specie_index == None:
             print(f"{find_name} has no specie_index")
@@ -88,7 +88,7 @@ class Load_Dataset:
 
     def class_counter(self):
         # classes=["background","cat","dog"]
-        name_list = [class_.split("/")[-1].split(".")[0] for class_ in self.img_path]
+        name_list = [class_.split(os.path.sep)[-1].split(".")[0] for class_ in self.img_path]
         specie_list = [self.specie_dict.get(name,None) for name in name_list]
         class_count = {class_name: specie_list.count(class_id) for class_id,class_name in enumerate(self.classes) if class_name != "background"}
 

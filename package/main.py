@@ -44,10 +44,10 @@ def elt_data():
 
     #logger.info("✅ Saved data!")
 
-def train_model():
-    artifacts = train.train()
-    performance = artifacts["performance"]
-    return 0
+# def train_model():
+#     artifacts = train.train()
+#     performance = artifacts["performance"]
+#     return 0
 
 if __name__ == "__main__":
     elt_data()
