@@ -14,9 +14,6 @@ class Load_Dataset:
                 classes, classes_limit,
                 augmentation, preprocessing, fix_mask):
 
-        print("\nRunning: Load_Dataset")
-        print("------------------------------------\n")
-
         self.img_dir = img_dir
         self.mask_dir = mask_dir
         self.img_ids = img_list
@@ -25,14 +22,8 @@ class Load_Dataset:
         self.specie_dict = specie_dict
         self.classes = classes
 
-        # self.img_ids = sorted(self.img_ids)
-        # self.mask_ids = sorted(self.mask_ids)
-
         self.img_path = [str(Path(self.img_dir,img_id)) for img_id in self.img_ids]
         self.mask_path = [str(Path(self.mask_dir,mask_id)) for mask_id in self.mask_ids]
-
-        # self.img_path = sorted(self.img_path)
-        # self.mask_path = sorted(self.mask_path)
 
         # Count classes and their number {"cat": 500, "dog": 1500}
         self.class_count = self.class_counter()
@@ -72,13 +63,14 @@ class Load_Dataset:
         if self.preprocessing:
             img, mask = self.preprocessing(img=img, mask=mask)
 
+        # normalize image (0 -> 255) to (0 -> 1)
+        img = img/255
+
         return img, mask
 
 
     def fix(self,i,mask):
         find_name = self.img_ids[i].split('.')[0]
-        #specie index
-        #specie_index = self.specie_dict.get(find_name,None)
         specie_index = self.specie_dict.get(self.mask_path[i].split("/")[-1].split(".")[0])
 
         if specie_index == None:
@@ -91,12 +83,13 @@ class Load_Dataset:
 
         return mask
 
-    def class_counter(self):
+    def normalize(self,i,img,mask):
+        return 0
 
+    def class_counter(self):
         # classes=["background","cat","dog"]
         name_list = [class_.split("/")[-1].split(".")[0] for class_ in self.img_path]
         specie_list = [self.specie_dict.get(name,None) for name in name_list]
         class_count = {class_name: specie_list.count(class_id) for class_id,class_name in enumerate(self.classes) if class_name != "background"}
-
 
         return class_count

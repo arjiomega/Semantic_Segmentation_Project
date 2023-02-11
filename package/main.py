@@ -4,7 +4,7 @@ import warnings
 
 from config import config
 from package import utils
-
+from package import train
 
 # for processing tar.gz files
 import requests
@@ -42,24 +42,12 @@ def elt_data():
     with tarfile.open(Path(config.DATA_DIR,"annotations.tar.gz"),"r:gz") as tar:
         tar.extractall(path=config.DATA_DIR)
 
-    # Transform
-    # <INSERT HERE>
-
-
-    # Extract + Load
-    # projects = pd.read_csv(config.PROJECTS_URL)
-    # tags = pd.read_csv(config.TAGS_URL)
-    # projects.to_csv(Path(config.DATA_DIR, "projects.csv"), index=False)
-    # tags.to_csv(Path(config.DATA_DIR, "tags.csv"), index=False)
-
-    # # Transform
-    # df = pd.merge(projects, tags, on="id")
-    # df = df[df.tag.notnull()]  # drop rows w/ no tag
-    # df.to_csv(Path(config.DATA_DIR, "labeled_projects.csv"), index=False)
-
-
-
     #logger.info("✅ Saved data!")
+
+def train_model():
+    artifacts = train.train()
+    performance = artifacts["performance"]
+    return 0
 
 if __name__ == "__main__":
     elt_data()
