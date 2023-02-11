@@ -6,3 +6,4 @@ imagehash == 4.3.1
 opencv-python == 4.7.0.68
 tensorflow == 2.11.0
 matplotlib == 3.6.3
+segmentation_models == 1.0.1

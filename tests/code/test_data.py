@@ -19,6 +19,10 @@ with warnings.catch_warnings():
 import sys
 import math
 
+# INCLUDE HERE THE NORMALIZATION
+# test using img.max() == 1 and img.min() == 0
+
+
 class TestData:
     @classmethod
     def setup_class(cls):
