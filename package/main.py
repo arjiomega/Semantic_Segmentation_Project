@@ -9,8 +9,34 @@ from package import train
 # for processing tar.gz files
 import requests
 import tarfile
+import json
+
+# experimentation tracking and optimization
+import mlflow
+#import optuna
+#from optuna.integration.mlflow import MLflowCallback # pip install optuna
+
+from argparse import Namespace
 
 warnings.filterwarnings("ignore")
+
+def optimize(study_name,num_trials):
+    """Optimize hyperparameters."""
+    # Optimize
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+    study = optuna.create_study(study_name="optimization",direction="maximize",pruner=pruner)
+    mlflow_callback = MLflowCallback(
+        tracking_uri=mlflow.get_tracking_uri(), metric_name="----")
+    study.optimize(
+        lambda trial: train.objective(args,df,trial),
+        n_trials = num_trials,
+        callbacks=[mlflow_callback])
+    
+    # Best trial
+    trials_df = study.trials_dataframe()
+    trials_df = trials_df.sort_values(["user_attrs_----"], ascending=False)
+
+
 
 def elt_data():
     """Extract, Load, and Transform Data Assets
@@ -44,10 +70,43 @@ def elt_data():
 
     #logger.info("✅ Saved data!")
 
-# def train_model():
-#     artifacts = train.train()
-#     performance = artifacts["performance"]
-#     return 0
+
+def train_model(args_fp,experiment_name,run_name):
+    """train model on dataset
+    args:
+        "encoder": "vgg16",
+        "learning_rate": 1e-4,
+        "batch_size": 32,
+        "epochs": 40,
+        "loss_function": "combined_focal_dice_loss",
+        "n_classes": 3,
+    """
+
+    args = Namespace(**utils.load_dict(filepath=args_fp))
+    artifacts = train.train(args)
+    performance = artifacts["performance"]
+    print(json.dumps(performance, indent=2))
+
+    # mlflow.set_experiment(experiment_name=experiment_name)
+    # with mlflow.start_run(run_name=run_name):
+    #     run_id = mlflow.active_run().info.run_id
+    #     print(f"Run ID: {run_id}")
+    #     artifacts = train.train(args)
+    #     performance = artifacts["performance"]
+    #     print(json.dumps(performance, indent=2))
+
+    #     # Log metrics and parameters
+    #     performance = artifacts["performance"]
+    #     mlflow.log_metrics({"precision": performance})
+    #     mlflow.log_metrics({})
+    #     mlflow.log_metrics({})
+    #     mlflow.log_params({})
+
+    #     # Log artifacts
+
 
 if __name__ == "__main__":
-    elt_data()
+    #elt_data()
+    # performance = [0.005, 0.005, 0.005] , loss, iou, focal (f1)
+    args_fp = Path(config.CONFIG_DIR,"args.json")
+    train_model(args_fp)
