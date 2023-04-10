@@ -21,7 +21,7 @@ setup(
     python_requires=">=3.9",
     packages=find_namespace_packages(),
     install_requires=[required_packages],
-    extra_require = {
+    extras_require = {
         "dev": test_packages,
         "test": test_packages,
     },

@@ -16,8 +16,14 @@ with warnings.catch_warnings():
     from package import data
     from package.data_utilities import clean_data,load_dataset,dataloader
 
+import os
+
 import sys
 import math
+
+# INCLUDE HERE THE NORMALIZATION
+# test using img.max() == 1 and img.min() == 0
+
 
 class TestData:
     @classmethod
@@ -250,8 +256,10 @@ class TestData:
         assert len(img_path) == len(mask_path)
 
         for i in random.sample(range(0,len(img_path)),10):
-            assert img_path[i].split("/")[-1].split(".")[0] == train_img[i].split(".")[0]
-            assert img_path[i].split("/")[-1].split(".")[0] == mask_path[i].split("/")[-1].split(".")[0]
+
+            #updated from "/" to os.path.sep to make it work in ubuntu and windows
+            assert img_path[i].split(os.path.sep)[-1].split(".")[0] == train_img[i].split(".")[0]
+            assert img_path[i].split(os.path.sep)[-1].split(".")[0] == mask_path[i].split(os.path.sep)[-1].split(".")[0]
 
         classes_limit = False
         classes = ["background", "cat", "dog"]
@@ -262,7 +270,7 @@ class TestData:
 
         ## TEST CAT
         mask = cv2.imread(mask_path[10],0)
-        specie_index = specie_dict.get(mask_path[10].split("/")[-1].split(".")[0])
+        specie_index = specie_dict.get(mask_path[10].split(os.path.sep)[-1].split(".")[0])
 
         assert all(np.unique(mask) == [1,2,3])
 
@@ -318,12 +326,12 @@ class TestData:
         assert len(np.unique(dog_test_mask[...,2])) == 2 # dog
 
         # CAT TEST
-        cat_test_img,cat_test_mask = train_dataset[3000]
+        cat_test_img,cat_test_mask = train_dataset[200]
 
         # 1: does not exist || 2: does exist (in the image)
         assert len(np.unique(cat_test_mask[...,0])) == 2 # background
-        assert len(np.unique(cat_test_mask[...,1])) == 1 # cat
-        assert len(np.unique(cat_test_mask[...,2])) == 2 # dog
+        assert len(np.unique(cat_test_mask[...,1])) == 2 # cat
+        assert len(np.unique(cat_test_mask[...,2])) == 1 # dog
 
 
     def test_final(self):
