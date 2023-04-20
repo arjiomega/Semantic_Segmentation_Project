@@ -8,28 +8,11 @@ import tensorflow as tf
 from config import config
 from loss_functions import DiceLoss
 
-cap = cv2.VideoCapture(str(Path(config.DATA_DIR,"dog-petting-cat-pet.mp4")))
-
-class DiceLoss(tf.keras.losses.Loss):
-    def __init__(self, smooth=1e-6, gama=2):
-        super(DiceLoss, self).__init__()
-        self.name = 'NDL'
-        self.smooth = smooth
-        self.gama = gama
-
-    def call(self, y_true, y_pred):
-        y_true, y_pred = tf.cast(
-            y_true, dtype=tf.float32), tf.cast(y_pred, tf.float32)
-        nominator = 2 * \
-            tf.reduce_sum(tf.multiply(y_pred, y_true)) + self.smooth
-        denominator = tf.reduce_sum(
-            y_pred ** self.gama) + tf.reduce_sum(y_true ** self.gama) + self.smooth
-        result = 1 - tf.divide(nominator, denominator)
-        return result
+cap = cv2.VideoCapture(str(Path(config.DATA_DIR,"dog_walking.mp4")))
 
 custom_objects = {'DiceLoss': DiceLoss}
 
-model_file = "model_run_subclass_split_dice_continue_train.h5"
+model_file = "test_best_model_trainable224-20230410-205234.h5"
 
 loaded_model = tf.keras.models.load_model(str(Path(config.DATA_DIR,model_file)), custom_objects=custom_objects, compile=False)
 
@@ -43,7 +26,7 @@ while True:
 
     success,frame = cap.read()
 
-    preprocessed_img = cv2.resize(frame, (128,128), interpolation=cv2.INTER_LINEAR)
+    preprocessed_img = cv2.resize(frame, (224,224), interpolation=cv2.INTER_LINEAR)
     preprocessed_img = np.round(preprocessed_img)
 
     preprocessed_img = preprocessed_img/255
@@ -79,7 +62,9 @@ while True:
         temp = cv2.addWeighted(temp,0.9,final_mask,0.1,0)
 
 
-    cv2.imshow('name',temp)
+    combi = np.concatenate((before,temp),axis=1)
+
+    cv2.imshow('name',combi)
 
 
 
